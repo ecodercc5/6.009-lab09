@@ -1,6 +1,5 @@
 """6.009 Lab 9: Carlae Interpreter Part 2"""
 
-from os import stat
 import sys
 import pprint
 
@@ -272,14 +271,56 @@ def is_less_or_equal(args):
 
 
 def eval_not(args):
-    print("args")
-    print(args)
+    # print("args")
+    # print(args)
 
     if len(args) != 1:
-        print("raising error")
+        # print("raising error")
         raise CarlaeEvaluationError()
 
     return not args[0]
+
+
+def create_pair(args):
+    if len(args) != 2:
+        raise CarlaeEvaluationError()
+
+    head, tail = args
+
+    return Pair(head, tail)
+
+
+class Pair:
+    def __init__(self, head, tail):
+        self.head = head
+        self.tail = tail
+
+    def __str__(self):
+        return f"(head: {self.head}, tail: {self.tail})"
+
+
+def get_head(args):
+    if len(args) != 1:
+        raise CarlaeEvaluationError()
+
+    pair = args[0]
+
+    if not isinstance(pair, Pair):
+        raise CarlaeEvaluationError()
+
+    return pair.head
+
+
+def get_tail(args):
+    if len(args) != 1:
+        raise CarlaeEvaluationError()
+
+    pair = args[0]
+
+    if not isinstance(pair, Pair):
+        raise CarlaeEvaluationError()
+
+    return pair.tail
 
 
 carlae_builtins = {
@@ -295,6 +336,9 @@ carlae_builtins = {
     "<": is_less,
     "<=": is_less_or_equal,
     "not": eval_not,
+    "pair": create_pair,
+    "head": get_head,
+    "tail": get_tail,
 }
 
 
@@ -372,7 +416,8 @@ class CarlaeFunction:
         return return_value
 
     def __str__(self):
-        return f"parameters: {self.parameters}, body: {self.body}"
+        return "function_object"
+        # return f"parameters: {self.parameters}, body: {self.body}"
 
 
 def create_function(parameters, body, enclosing_env):
@@ -390,7 +435,7 @@ class And(ConditionalBinOp):
     def eval(self):
         for statement in self.statements:
             value = evaluate(statement, self.env)
-            print(value)
+            # print(value)
 
             if not value:
                 return False
@@ -402,7 +447,7 @@ class Or(ConditionalBinOp):
     def eval(self):
         for statement in self.statements:
             value = evaluate(statement, self.env)
-            print(value)
+            # print(value)
 
             if value:
                 return True
@@ -477,7 +522,6 @@ def evaluate(tree, env=None):
         condition_value = evaluate(condition, env)
 
         truthy_val = condition_value
-
         if isinstance(condition_value, ConditionalBinOp):
             truthy_val = condition_value.eval()
 
@@ -557,6 +601,7 @@ def run_repl():
 
         except Exception as e:
             exception_name = e.__class__.__name__
+
             print(exception_name)
 
 
@@ -567,12 +612,8 @@ if __name__ == "__main__":
     # uncommenting the following line will run doctests from above
     # doctest.testmod()
 
-    # print(is_equal())
+    # pair = Pair(2, 3)
 
-    env = Environment(carlae_builtins)
+    # print(pair)
 
-    or_statement = Or(["@f", "@t"], env)
-
-    print(or_statement.eval())
-
-    # run_repl()
+    run_repl()
