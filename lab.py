@@ -1,6 +1,5 @@
 """6.009 Lab 9: Carlae Interpreter Part 2"""
 
-from re import L
 import sys
 import pprint
 
@@ -231,7 +230,7 @@ def divide(args):
 
 
 def assignment(variable, value, env):
-    env.set(variable, value)
+    env.assign(variable, value)
 
     return value
 
@@ -542,6 +541,10 @@ def reduce_list(args):
     return _reduce(func, lst, initial)
 
 
+def begin(args):
+    return args[-1]
+
+
 carlae_builtins = {
     "+": sum,
     "-": lambda args: -args[0] if len(args) == 1 else (args[0] - sum(args[1:])),
@@ -567,6 +570,7 @@ carlae_builtins = {
     "map": map_list,
     "filter": filter_list,
     "reduce": reduce_list,
+    "begin": begin,
 }
 
 
@@ -596,12 +600,25 @@ class Environment:
         # get variable from parent env
         return self.parent.get(variable)
 
-    def set(self, variable, value):
+    def assign(self, variable, value):
         """
         Set a variable binding in the current env
         """
 
         self.variables[variable] = value
+
+    def set(self, variable, value):
+        pass
+
+    def delete(self, variable):
+        if variable in self.variables:
+            value = self.variables[variable]
+
+            del self.variables[variable]
+
+            return value
+
+        raise CarlaeNameError()
 
     def __str__(self):
         return f"(variables: {pprint.pformat(self.variables)})"
@@ -638,7 +655,7 @@ class CarlaeFunction:
 
         # bind variables to environment
         for var, val in zip(self.parameters, evaluated_arguments):
-            func_env.set(var, val)
+            func_env.assign(var, val)
 
         # evalute the function body in the function environment
 
@@ -678,7 +695,6 @@ class Or(ConditionalBinOp):
     def eval(self):
         for statement in self.statements:
             value = evaluate(statement, self.env)
-            # print(value)
 
             if value:
                 return True
@@ -703,13 +719,6 @@ def evaluate(tree, env=None):
 
     if isinstance(tree, str):
         return env.get(tree)
-
-    # check if tree is a number or a builtin carlae type
-    if isinstance(tree, int) or isinstance(tree, float):
-        return tree
-
-    if isinstance(tree, CarlaeFunction):
-        return tree
 
     if not isinstance(tree, list):
         return tree
@@ -760,6 +769,26 @@ def evaluate(tree, env=None):
         return And(tree[1:], env).eval()
     elif keyword == "or":
         return Or(tree[1:], env).eval()
+    elif keyword == "del":
+        _, variable = tree
+
+        return env.delete(variable)
+
+    elif keyword == "let":
+        _, variable_bindings, body = tree
+
+        # create a local env
+        local_env = Environment({}, env)
+
+        # evaluate var definitions and bind them to local env
+        for var, val in variable_bindings:
+            evaluated_val = evaluate(val, env)
+
+            local_env.assign(var, evaluated_val)
+
+        return evaluate(body, local_env)
+    elif keyword == "set!":
+        return 69
 
     # evaluate each expression in the tree
     evaluated_expressions = [evaluate(expression, env) for expression in tree]
@@ -810,9 +839,8 @@ def run_carlae(raw_carlae_str, env=None):
     return evaluated[0]
 
 
-def run_repl():
-    builtins = Environment(carlae_builtins)
-    global_env = Environment({}, builtins)
+def run_repl(env=None):
+    env = _create_env(env)
 
     while True:
         raw_carlae_str = input("in> ")
@@ -821,7 +849,7 @@ def run_repl():
             break
 
         try:
-            value = run_carlae(raw_carlae_str, global_env)
+            value = run_carlae(raw_carlae_str, env)
 
             if _is_list(value):
                 print(f"out> {render_list(value)}")
@@ -837,6 +865,15 @@ def run_repl():
             print(exception_name)
 
 
+def evaluate_file(filename, env=None):
+    env = _create_env(env)
+
+    with open(filename, "r") as f:
+        carlae = f.read()
+
+        return run_carlae(carlae, env)
+
+
 if __name__ == "__main__":
     # code in this block will only be executed if lab.py is the main file being
     # run (not when this module is imported)
@@ -844,9 +881,13 @@ if __name__ == "__main__":
     # uncommenting the following line will run doctests from above
     # doctest.testmod()
 
-    # lst = create_list([2])
-    # lst2 = create_list([7, 80])
+    builtins = Environment(carlae_builtins)
+    global_env = Environment({}, builtins)
 
-    # print(concat([lst, lst2]))
+    files_to_load = sys.argv[1:]
 
-    run_repl()
+    # load files
+    for file_ in files_to_load:
+        evaluate_file(file_, global_env)
+
+    run_repl(global_env)
