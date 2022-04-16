@@ -409,22 +409,42 @@ def _is_all_lists(lsts):
 
 
 def copy_list(lst):
-    pass
+    if lst == Nil():
+        return Nil()
+
+    return Pair(lst.head, copy_list(lst.tail))
+
+
+def get_last_pair(pair):
+    if pair.tail == Nil():
+        return pair
+
+    return get_last_pair(pair.tail)
 
 
 def _concat(lsts):
-    pass
+    if len(lsts) == 0:
+        return Nil()
+
+    copied_head = copy_list(lsts[0])
+    concat_body = _concat(lsts[1:])
+
+    if copied_head == Nil():
+        return concat_body
+
+    get_last_pair(copied_head).tail = concat_body
+
+    return copied_head
 
 
 def concat(args):
-    if len(args) == 0:
-        return Nil()
-
     # check if all args are lists
     is_all_lists = _is_all_lists(args)
 
     if not is_all_lists:
         raise CarlaeEvaluationError()
+
+    return _concat(args)
 
 
 carlae_builtins = {
@@ -722,16 +742,9 @@ if __name__ == "__main__":
     # uncommenting the following line will run doctests from above
     # doctest.testmod()
 
-    # pair = Pair(2, 3)
+    # lst = create_list([2])
+    # lst2 = create_list([7, 80])
 
-    # print(pair)
-
-    # lst = create_list([2, 3, 5, 10, 3])
-
-    # print(get_length([lst]))
-
-    # print(is_list([lst]))
-
-    print(Nil() == Nil())
+    # print(concat([lst, lst2]))
 
     run_repl()
