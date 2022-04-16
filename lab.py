@@ -343,10 +343,10 @@ def _is_list(obj):
     if type(obj) is not Pair:
         return False
 
-    if obj.head:
-        return _is_list(obj.tail)
+    # if obj.head:
+    return _is_list(obj.tail)
 
-    return False
+    # return False
 
 
 def render_list(lst):
@@ -464,31 +464,26 @@ def concat(args):
     return _concat(args)
 
 
+def _call_func(func, args):
+    if callable(func):
+        return func(args)
+    else:
+        return func.call(args)
+
+
 def _map(func, lst):
     if lst == Nil():
         return Nil()
 
-    print(func)
-    print(lst)
-
     current_val = lst.head
-    print(f"current_val: {current_val}")
-
-    print(callable(func))
-
-    if callable(func):
-        mapped_val = func([current_val])
-    else:
-        mapped_val = func.call([current_val])
-
-    print(f"mapped_val: {mapped_val}")
+    mapped_val = _call_func(func, [current_val])
 
     return Pair(mapped_val, _map(func, lst.tail))
 
 
-def map_list(args):
-    print(args)
+def check_is_func_and_list(args):
     if len(args) != 2:
+
         raise CarlaeEvaluationError()
 
     func, lst = args
@@ -500,7 +495,51 @@ def map_list(args):
     if not is_valid_args:
         raise CarlaeEvaluationError()
 
+    return func, lst
+
+
+def map_list(args):
+    func, lst = check_is_func_and_list(args)
+
     return _map(func, lst)
+
+
+def _filter(func, lst):
+    if lst == Nil():
+        return Nil()
+
+    current_value = lst.head
+    should_include = _call_func(func, [current_value])
+
+    if should_include:
+        return Pair(current_value, _filter(func, lst.tail))
+
+    return _filter(func, lst.tail)
+
+
+def filter_list(args):
+    func, lst = check_is_func_and_list(args)
+
+    return _filter(func, lst)
+
+
+def _reduce(func, lst, initial):
+    if lst == Nil():
+        return initial
+
+    new_initial = _call_func(func, [initial, lst.head])
+
+    return _reduce(func, lst.tail, new_initial)
+
+
+def reduce_list(args):
+    if len(args) != 3:
+        raise CarlaeEvaluationError()
+
+    func, lst = check_is_func_and_list(args[:2])
+    initial = args[2]
+
+    return _reduce(func, lst, initial)
 
 
 carlae_builtins = {
@@ -526,6 +565,8 @@ carlae_builtins = {
     "nth": get_index,
     "concat": concat,
     "map": map_list,
+    "filter": filter_list,
+    "reduce": reduce_list,
 }
 
 
@@ -582,6 +623,7 @@ class CarlaeFunction:
         self.enclosing_env = enclosing_env
 
     def call(self, arguments):
+
         # different number of parameters -> error
         if len(self.parameters) != len(arguments):
             # print(self.parameters)
@@ -599,6 +641,7 @@ class CarlaeFunction:
             func_env.set(var, val)
 
         # evalute the function body in the function environment
+
         return_value = evaluate(self.body, func_env)
 
         return return_value
@@ -708,17 +751,15 @@ def evaluate(tree, env=None):
         condition_value = evaluate(condition, env)
 
         truthy_val = condition_value
-        if isinstance(condition_value, ConditionalBinOp):
-            truthy_val = condition_value.eval()
 
         if truthy_val:
             return evaluate(statement1, env)
 
         return evaluate(statement2, env)
     elif keyword == "and":
-        return And(tree[1:], env)
+        return And(tree[1:], env).eval()
     elif keyword == "or":
-        return Or(tree[1:], env)
+        return Or(tree[1:], env).eval()
 
     # evaluate each expression in the tree
     evaluated_expressions = [evaluate(expression, env) for expression in tree]
