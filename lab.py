@@ -1,7 +1,6 @@
 """6.009 Lab 9: Carlae Interpreter Part 2"""
 
 import sys
-import pprint
 
 sys.setrecursionlimit(10_000)
 
@@ -608,7 +607,14 @@ class Environment:
         self.variables[variable] = value
 
     def set(self, variable, value):
-        pass
+        if variable in self.variables:
+            self.variables[variable] = value
+            return
+
+        if not self.parent:
+            raise CarlaeNameError()
+
+        return self.parent.set(variable, value)
 
     def delete(self, variable):
         if variable in self.variables:
@@ -621,7 +627,7 @@ class Environment:
         raise CarlaeNameError()
 
     def __str__(self):
-        return f"(variables: {pprint.pformat(self.variables)})"
+        return f"(variables: {self.variables})"
 
 
 def _create_env(env):
@@ -788,7 +794,12 @@ def evaluate(tree, env=None):
 
         return evaluate(body, local_env)
     elif keyword == "set!":
-        return 69
+        _, variable, expression = tree
+        evaluated_val = evaluate(expression, env)
+
+        env.set(variable, evaluated_val)
+
+        return evaluated_val
 
     # evaluate each expression in the tree
     evaluated_expressions = [evaluate(expression, env) for expression in tree]
