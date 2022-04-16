@@ -1,5 +1,6 @@
 """6.009 Lab 9: Carlae Interpreter Part 2"""
 
+from re import L
 import sys
 import pprint
 
@@ -323,6 +324,109 @@ def get_tail(args):
     return pair.tail
 
 
+class Nil:
+    def __eq__(self, __o: object) -> bool:
+        return isinstance(__o, Nil)
+
+
+def create_list(args):
+    if len(args) == 0:
+        return Nil()
+
+    return Pair(args[0], create_list(args[1:]))
+
+
+def _is_list(obj):
+    if obj == Nil():
+        return True
+
+    if type(obj) is not Pair:
+        return False
+
+    if obj.head:
+        return _is_list(obj.tail)
+
+    return False
+
+
+def is_list(args):
+    arg = args[0]
+
+    return _is_list(arg)
+
+
+def get_length(args):
+    lst = args[0]
+
+    if not _is_list(lst):
+        raise CarlaeEvaluationError()
+
+    if lst == Nil():
+        return 0
+
+    return 1 + get_length([lst.tail])
+
+
+def _get_index(list_or_pair, index):
+    if type(index) not in [int, float]:
+        raise CarlaeEvaluationError()
+
+    if _is_list(list_or_pair):
+        if list_or_pair == Nil() and index != 0:
+            raise CarlaeEvaluationError()
+
+        if index == 0:
+            # empty list
+            if list_or_pair == Nil():
+                raise CarlaeEvaluationError()
+
+            return list_or_pair.head
+
+        return _get_index(list_or_pair.tail, index - 1)
+
+    if type(list_or_pair) == Pair:
+        if index == 0:
+            return list_or_pair.head
+
+    raise CarlaeEvaluationError()
+
+
+def get_index(args):
+    if len(args) != 2:
+        return CarlaeEvaluationError()
+
+    list_or_pair, index = args
+
+    return _get_index(list_or_pair, index)
+
+
+def _is_all_lists(lsts):
+    for lst in lsts:
+        if not _is_list(lst):
+            return False
+
+    return True
+
+
+def copy_list(lst):
+    pass
+
+
+def _concat(lsts):
+    pass
+
+
+def concat(args):
+    if len(args) == 0:
+        return Nil()
+
+    # check if all args are lists
+    is_all_lists = _is_all_lists(args)
+
+    if not is_all_lists:
+        raise CarlaeEvaluationError()
+
+
 carlae_builtins = {
     "+": sum,
     "-": lambda args: -args[0] if len(args) == 1 else (args[0] - sum(args[1:])),
@@ -339,6 +443,12 @@ carlae_builtins = {
     "pair": create_pair,
     "head": get_head,
     "tail": get_tail,
+    "nil": Nil(),
+    "list": create_list,
+    "list?": is_list,
+    "length": get_length,
+    "nth": get_index,
+    "concat": concat,
 }
 
 
@@ -468,11 +578,7 @@ def evaluate(tree, env=None):
     env = _create_env(env)
 
     if tree == []:
-        return []
-
-    # check if tree is a number or a builtin carlae type
-    if isinstance(tree, int) or isinstance(tree, float):
-        return tree
+        raise CarlaeEvaluationError()
 
     if isinstance(tree, str):
         val = env.get(tree)
@@ -481,6 +587,10 @@ def evaluate(tree, env=None):
             raise CarlaeNameError()
 
         return val
+
+    # check if tree is a number or a builtin carlae type
+    if isinstance(tree, int) or isinstance(tree, float):
+        return tree
 
     if isinstance(tree, CarlaeFunction):
         return tree
@@ -615,5 +725,13 @@ if __name__ == "__main__":
     # pair = Pair(2, 3)
 
     # print(pair)
+
+    # lst = create_list([2, 3, 5, 10, 3])
+
+    # print(get_length([lst]))
+
+    # print(is_list([lst]))
+
+    print(Nil() == Nil())
 
     run_repl()
