@@ -349,6 +349,23 @@ def _is_list(obj):
     return False
 
 
+def render_list(lst):
+    render = "("
+
+    current = lst
+
+    while current != Nil():
+
+        render += str(current.head)
+
+        if current.tail != Nil():
+            render += " "
+
+        current = current.tail
+
+    return render + ")"
+
+
 def is_list(args):
     arg = args[0]
 
@@ -447,6 +464,45 @@ def concat(args):
     return _concat(args)
 
 
+def _map(func, lst):
+    if lst == Nil():
+        return Nil()
+
+    print(func)
+    print(lst)
+
+    current_val = lst.head
+    print(f"current_val: {current_val}")
+
+    print(callable(func))
+
+    if callable(func):
+        mapped_val = func([current_val])
+    else:
+        mapped_val = func.call([current_val])
+
+    print(f"mapped_val: {mapped_val}")
+
+    return Pair(mapped_val, _map(func, lst.tail))
+
+
+def map_list(args):
+    print(args)
+    if len(args) != 2:
+        raise CarlaeEvaluationError()
+
+    func, lst = args
+
+    is_valid_args = (callable(func) or isinstance(func, CarlaeFunction)) and _is_list(
+        lst
+    )
+
+    if not is_valid_args:
+        raise CarlaeEvaluationError()
+
+    return _map(func, lst)
+
+
 carlae_builtins = {
     "+": sum,
     "-": lambda args: -args[0] if len(args) == 1 else (args[0] - sum(args[1:])),
@@ -469,6 +525,7 @@ carlae_builtins = {
     "length": get_length,
     "nth": get_index,
     "concat": concat,
+    "map": map_list,
 }
 
 
@@ -492,7 +549,8 @@ class Environment:
 
         # binding doesn't exist, check if parent env exists
         if not self.parent:
-            return None
+            raise CarlaeNameError()
+            # return None
 
         # get variable from parent env
         return self.parent.get(variable)
@@ -601,18 +659,16 @@ def evaluate(tree, env=None):
         raise CarlaeEvaluationError()
 
     if isinstance(tree, str):
-        val = env.get(tree)
-
-        if val is None:
-            raise CarlaeNameError()
-
-        return val
+        return env.get(tree)
 
     # check if tree is a number or a builtin carlae type
     if isinstance(tree, int) or isinstance(tree, float):
         return tree
 
     if isinstance(tree, CarlaeFunction):
+        return tree
+
+    if not isinstance(tree, list):
         return tree
 
     keyword = tree[0]
@@ -725,7 +781,12 @@ def run_repl():
 
         try:
             value = run_carlae(raw_carlae_str, global_env)
-            print(f"out> {value}")
+
+            if _is_list(value):
+                print(f"out> {render_list(value)}")
+
+            else:
+                print(f"out> {value}")
 
             # print(global_env)
 
